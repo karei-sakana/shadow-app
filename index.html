@@ -109,7 +109,6 @@
     .gm-container { display: none; margin-top: 8px; padding: 10px; background: rgba(212, 175, 55, 0.08); border-radius: 8px; border: 1px solid var(--gold-accent); }
     .gm-container.active { display: block; }
 
-    /* 大会2デッキ用コンテナ */
     .second-deck-container { display: none; margin-top: 8px; }
     .second-deck-container.active { display: block; }
 
@@ -136,17 +135,14 @@
     .delete-btn { color: #999; }
     .edit-btn { color: var(--gold-dark); }
 
-    /* アップデート情報用スタイル */
     .update-log-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
     .update-log-item { background: rgba(212, 175, 55, 0.05); border-left: 3px solid var(--gold-accent); padding: 8px 12px; border-radius: 4px; }
     .update-date { font-family: var(--font-family-en); font-size: 0.75rem; color: var(--gold-dark); font-weight: bold; display: block; margin-bottom: 2px; }
 
-    /* モーダル共通 */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
     .modal.active { display: flex; }
     .modal-content { background: #fff; border: 2px solid var(--gold-accent); border-radius: 12px; width: 92%; max-width: 500px; padding: 16px; max-height: 90vh; overflow-y: auto; }
 
-    /* フッター */
     footer {
       margin-top: 30px;
       padding: 18px 12px;
@@ -232,7 +228,6 @@
             <input type="text" id="myTag" placeholder="例: Ver1.1, 構築A">
           </div>
 
-          <!-- グループ選択（通常時のみ表示） -->
           <div class="form-group" id="gemField">
             <label for="gemClass">グループ</label>
             <select id="gemClass">
@@ -486,19 +481,13 @@
       <ul class="update-log-list">
         <li class="update-log-item">
           <span class="update-date">2026.07 (最新)</span>
-          <strong>GM初期レート自動反映 & 相性分析の戦績内訳強化</strong>
-          <p style="font-size: 0.75rem; color: #555; margin-top: 2px;">最後に使用したGM初期レートをローカルストレージに自動保存し、次回起動時に自動で初期値としてセットされる機能を追加しました。また、相性分析にトータルの勝敗・勝率および先攻・後攻別の内訳表示を追加し、より詳細な分析ができるようになりました。</p>
-        </li>
-        <li class="update-log-item">
-          <span class="update-date">2026.07</span>
-          <strong>大会戦績の2デッキ選択・自由記述対応</strong>
-          <p style="font-size: 0.75rem; color: #555; margin-top: 2px;">第2章（大会戦績）に2デッキ制用の切り替えチェックボックスを追加し、第3章の登録デッキから選択または自由に文字入力できるよう改善しました。</p>
+          <strong>GM初期レート自動保持 & 相性分析の戦績内訳強化</strong>
+          <p style="font-size: 0.75rem; color: #555; margin-top: 2px;">最後に使用したGM初期レートをローカルストレージに自動保存し、次回起動時に自動で初期値としてセットされる機能を追加しました。また、相性分析にトータルの勝敗・勝率および先攻・後攻別の内訳表示を追加しました。</p>
         </li>
       </ul>
     </div>
   </div>
 
-  <!-- ==================== 📜 フッター（作成者・免責事項） ==================== -->
   <footer>
     <div class="footer-grid">
       <div class="footer-section">
@@ -518,7 +507,6 @@
     <div class="footer-disclaimer">
       <p>⚠️ <strong>免責事項・権利表記</strong></p>
       <p>当ウェブサイト（アプリ）は個人によって開発された<strong>非公式のファンツール</strong>であり、株式会社Cygamesおよび「Shadowverse / Shadowverse Worlds Beyond」の公式とは一切関係がありません。</p>
-      <p>本アプリ内で使用されているゲーム画像・商標・権利物の著作権および知的所有権は、各権利者に帰属します。</p>
     </div>
   </footer>
 
@@ -685,7 +673,6 @@
   </div>
 </div>
 
-<!-- 共有用datalist（3章のデッキから自動生成） -->
 <datalist id="deckLibraryList"></datalist>
 
 <script type="module">
@@ -742,7 +729,6 @@
       }
     });
 
-    // 1. GM初期レートの自動読み込み (最後に使用した数値を復元)
     const lastRate = localStorage.getItem('swb_initialRate');
     if (lastRate !== null) {
       const rateEl = document.getElementById('initialRate');
@@ -763,7 +749,6 @@
     }
   });
 
-  // GM初期レートの入力変更時にローカルストレージへ保存
   const initialRateInput = document.getElementById('initialRate');
   if (initialRateInput) {
     initialRateInput.addEventListener('input', (e) => {
@@ -820,11 +805,8 @@
     const types = new Set(DEFAULT_DECK_TYPES[selectedClass] || []);
 
     decks.forEach(d => {
-      if (d.className === selectedClass && d.title) {
-        types.add(d.title);
-      }
+      if (d.className === selectedClass && d.title) types.add(d.title);
     });
-
     matches.forEach(m => {
       if (m.myClass === selectedClass && m.myType) types.add(m.myType);
     });
@@ -846,13 +828,8 @@
     document.getElementById('oppDeckTypeHistory').innerHTML = Array.from(types).map(t => `<option value="${t}">`).join('');
   }
 
-  document.getElementById('myClass').addEventListener('change', () => {
-    updateMyDeckDatalist();
-  });
-
-  document.getElementById('oppClass').addEventListener('change', () => {
-    updateOppDeckDatalist();
-  });
+  document.getElementById('myClass').addEventListener('change', () => updateMyDeckDatalist());
+  document.getElementById('oppClass').addEventListener('change', () => updateOppDeckDatalist());
 
   document.getElementById('editMyClass').addEventListener('change', (e) => {
     const cls = e.target.value;
@@ -880,10 +857,7 @@
     document.getElementById('deckLibraryList').innerHTML = Array.from(deckNames).map(n => `<option value="${n}">`).join('');
 
     const tags = new Set();
-    matches.forEach(m => {
-      if (m.myTag) tags.add(m.myTag);
-    });
-
+    matches.forEach(m => { if (m.myTag) tags.add(m.myTag); });
     document.getElementById('tagHistory').innerHTML = Array.from(tags).map(t => `<option value="${t}">`).join('');
   }
 
@@ -924,7 +898,6 @@
     const initialRateVal = parseNumber(document.getElementById('initialRate').value);
     const rateChangeVal = parseNumber(document.getElementById('rateChange').value);
 
-    // 1. レート入力値も確定時にローカルストレージへ保存
     if (initialRateVal !== null) {
       localStorage.setItem('swb_initialRate', initialRateVal);
     }
@@ -1031,7 +1004,6 @@
     }
 
     document.getElementById('editOppClass').value = m.oppClass || 'エルフ';
-    
     const oppCls = document.getElementById('editOppClass').value;
     const oppTypes = new Set(DEFAULT_DECK_TYPES[oppCls] || []);
     decks.forEach(d => { if (d.className === oppCls && d.title) oppTypes.add(d.title); });
@@ -1082,7 +1054,6 @@
     document.getElementById('editTourneyName').value = t.name || '';
     document.getElementById('editTourneyFormat').value = t.format || 'BO3';
     document.getElementById('editTourneyResult').value = t.result || '';
-    
     document.getElementById('editTourneyDeck1').value = t.deck1 || t.deck || '';
     document.getElementById('editTourneyDeck2').value = t.deck2 || '';
     
@@ -1205,9 +1176,7 @@
     tbody.innerHTML = '';
     const byTag = document.getElementById('groupByTag').value === 'true';
 
-    // 2. 相性分析に「合計何勝何敗（勝率）」を表示する集計処理
-    let totalWins = 0;
-    let totalLosses = 0;
+    let totalWins = 0, totalLosses = 0;
     let firstWins = 0, firstLosses = 0;
     let secondWins = 0, secondLosses = 0;
 
@@ -1230,7 +1199,6 @@
     const secondTotal = secondWins + secondLosses;
     const secondWinRate = secondTotal > 0 ? Math.round((secondWins / secondTotal) * 100) : 0;
 
-    // ヘッダー横または分析上部にトータル＆先後別内訳を表示
     const summaryBadgeEl = document.getElementById('totalSummaryBadge');
     if (summaryBadgeEl) {
       summaryBadgeEl.innerHTML = `
@@ -1248,18 +1216,12 @@
     data.forEach(m => {
       const myDeckName = byTag && m.myTag ? `${m.myClass} (${m.myType}[${m.myTag}])` : `${m.myClass} (${m.myType})`;
       const oppDeckName = `${m.oppClass} (${m.oppType})`;
-      
       const key = `${myDeckName} vs ${oppDeckName}`;
 
       if (!map[key]) {
         map[key] = { 
-          my: myDeckName, 
-          opp: oppDeckName, 
-          win: 0, 
-          lose: 0, 
-          total: 0,
-          firstWin: 0, firstLose: 0,
-          secondWin: 0, secondLose: 0
+          my: myDeckName, opp: oppDeckName, win: 0, lose: 0, total: 0,
+          firstWin: 0, firstLose: 0, secondWin: 0, secondLose: 0
         };
       }
       map[key].total++;
@@ -1286,7 +1248,6 @@
       if (s.winRate <= 45) judge = '微不利';
       if (s.winRate <= 35) judge = '不利 ✕';
 
-      // 3. 各行にも先手・後手の勝率一覧（内訳）を分かりやすく表示
       const fTot = s.firstWin + s.firstLose;
       const fRate = fTot > 0 ? Math.round((s.firstWin / fTot) * 100) : 0;
       const sTot = s.secondWin + s.secondLose;
