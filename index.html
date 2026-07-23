@@ -337,7 +337,7 @@
     </div>
 
     <div class="trump-card">
-      <h2><span style="color: var(--spade-black);">♠</span> 相性分析</h2>
+      <h2><span style="color: var(--spade-black);">♠</span> 相性分析 <span id="totalSummaryBadge" style="margin-left: auto; font-size: 0.85rem; font-weight: normal; color: var(--spade-black);"></span></h2>
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 8px; font-size: 0.8rem; color: #666; align-items: center;">
         <div>シーズン: <select id="filterSeason" style="padding: 2px 4px; font-size: 13px; width: auto; display: inline-block;"><option value="ALL">全シーズン</option></select></div>
         <div>フォーマット: <select id="filterFormat" style="padding: 2px 4px; font-size: 13px; width: auto; display: inline-block;"><option value="ALL">すべて</option><option value="ローテーション">ローテ</option><option value="アンリミテッド">アンリミ</option></select></div>
@@ -486,8 +486,8 @@
       <ul class="update-log-list">
         <li class="update-log-item">
           <span class="update-date">2026.07 (最新)</span>
-          <strong>大会戦績の表示レイアウト修正 & ラベル変更</strong>
-          <p style="font-size: 0.75rem; color: #555; margin-top: 2px;">スマホ表示時に開催日と大会名が重ならないようレイアウトを修正し、入力・表示の「開催日付」を「開催日」に変更しました。また、第1章の相性分析・ログへの先攻・後攻絞り込み機能を追加しました。</p>
+          <strong>GM初期レート自動反映 & 相性分析の戦績内訳強化</strong>
+          <p style="font-size: 0.75rem; color: #555; margin-top: 2px;">最後に使用したGM初期レートをローカルストレージに自動保存し、次回起動時に自動で初期値としてセットされる機能を追加しました。また、相性分析にトータルの勝敗・勝率および先攻・後攻別の内訳表示を追加し、より詳細な分析ができるようになりました。</p>
         </li>
         <li class="update-log-item">
           <span class="update-date">2026.07</span>
@@ -511,7 +511,7 @@
       </div>
       <div class="footer-section">
         <h3>ℹ️ アプリ仕様</h3>
-        <p>バージョン: Ver 1.6.4</p>
+        <p>バージョン: Ver 1.6.5</p>
         <p>対応機能: ランク戦績記録 / GMレート集計 / 大会戦績管理 / デッキライブラリ </p>
       </div>
     </div>
@@ -741,9 +741,18 @@
         if (el) el.value = savedVal;
       }
     });
+
+    // 1. GM初期レートの自動読み込み (最後に使用した数値を復元)
+    const lastRate = localStorage.getItem('swb_initialRate');
+    if (lastRate !== null) {
+      const rateEl = document.getElementById('initialRate');
+      if (rateEl) rateEl.value = lastRate;
+    }
+
     updateMyDeckDatalist();
     updateOppDeckDatalist();
   }
+
   savedFields.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -753,6 +762,14 @@
       });
     }
   });
+
+  // GM初期レートの入力変更時にローカルストレージへ保存
+  const initialRateInput = document.getElementById('initialRate');
+  if (initialRateInput) {
+    initialRateInput.addEventListener('input', (e) => {
+      localStorage.setItem('swb_initialRate', e.target.value);
+    });
+  }
 
   window.toggleAuth = () => {
     if (currentUser) signOut(auth);
@@ -906,6 +923,11 @@
 
     const initialRateVal = parseNumber(document.getElementById('initialRate').value);
     const rateChangeVal = parseNumber(document.getElementById('rateChange').value);
+
+    // 1. レート入力値も確定時にローカルストレージへ保存
+    if (initialRateVal !== null) {
+      localStorage.setItem('swb_initialRate', initialRateVal);
+    }
 
     try {
       await addDoc(collection(db, "users", currentUser.uid, "matches"), {
@@ -1183,6 +1205,40 @@
     tbody.innerHTML = '';
     const byTag = document.getElementById('groupByTag').value === 'true';
 
+    // 2. 相性分析に「合計何勝何敗（勝率）」を表示する集計処理
+    let totalWins = 0;
+    let totalLosses = 0;
+    let firstWins = 0, firstLosses = 0;
+    let secondWins = 0, secondLosses = 0;
+
+    data.forEach(m => {
+      if (m.result === 'WIN') {
+        totalWins++;
+        if (m.turn === '先攻') firstWins++;
+        else if (m.turn === '後攻') secondWins++;
+      } else {
+        totalLosses++;
+        if (m.turn === '先攻') firstLosses++;
+        else if (m.turn === '後攻') secondLosses++;
+      }
+    });
+
+    const totalMatches = totalWins + totalLosses;
+    const totalWinRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
+    const firstTotal = firstWins + firstLosses;
+    const firstWinRate = firstTotal > 0 ? Math.round((firstWins / firstTotal) * 100) : 0;
+    const secondTotal = secondWins + secondLosses;
+    const secondWinRate = secondTotal > 0 ? Math.round((secondWins / secondTotal) * 100) : 0;
+
+    // ヘッダー横または分析上部にトータル＆先後別内訳を表示
+    const summaryBadgeEl = document.getElementById('totalSummaryBadge');
+    if (summaryBadgeEl) {
+      summaryBadgeEl.innerHTML = `
+        <span style="font-weight:700;">トータル: ${totalWins}勝 ${totalLosses}敗 (勝率 ${totalWinRate}%)</span><br>
+        <span style="font-size:0.75rem; color:#555;">【先攻】${firstWins}勝 ${firstLosses}敗 (勝率${firstWinRate}%) ｜ 【後攻】${secondWins}勝 ${secondLosses}敗 (勝率${secondWinRate}%)</span>
+      `;
+    }
+
     if (data.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" style="color:#888;">データがありません</td></tr>';
       return;
@@ -1195,9 +1251,27 @@
       
       const key = `${myDeckName} vs ${oppDeckName}`;
 
-      if (!map[key]) map[key] = { my: myDeckName, opp: oppDeckName, win: 0, lose: 0, total: 0 };
+      if (!map[key]) {
+        map[key] = { 
+          my: myDeckName, 
+          opp: oppDeckName, 
+          win: 0, 
+          lose: 0, 
+          total: 0,
+          firstWin: 0, firstLose: 0,
+          secondWin: 0, secondLose: 0
+        };
+      }
       map[key].total++;
-      if (m.result === 'WIN') map[key].win++; else map[key].lose++;
+      if (m.result === 'WIN') {
+        map[key].win++;
+        if (m.turn === '先攻') map[key].firstWin++;
+        else map[key].secondWin++;
+      } else {
+        map[key].lose++;
+        if (m.turn === '先攻') map[key].firstLose++;
+        else map[key].secondLose++;
+      }
     });
 
     const list = Object.values(map).map(s => {
@@ -1212,12 +1286,25 @@
       if (s.winRate <= 45) judge = '微不利';
       if (s.winRate <= 35) judge = '不利 ✕';
 
+      // 3. 各行にも先手・後手の勝率一覧（内訳）を分かりやすく表示
+      const fTot = s.firstWin + s.firstLose;
+      const fRate = fTot > 0 ? Math.round((s.firstWin / fTot) * 100) : 0;
+      const sTot = s.secondWin + s.secondLose;
+      const sRate = sTot > 0 ? Math.round((s.secondWin / sTot) * 100) : 0;
+
+      const breakdownHTML = `
+        <div style="font-size:0.7rem; color:#555; margin-top:3px; line-height:1.2;">
+          【先攻】${s.firstWin}勝${s.firstLose}敗(${fRate}%)<br>
+          【後攻】${s.secondWin}勝${s.secondLose}敗(${sRate}%)
+        </div>
+      `;
+
       tbody.innerHTML += `
         <tr>
           <td><strong>${s.my}</strong></td>
           <td>${s.opp}</td>
           <td>${s.total}</td>
-          <td>${s.win}W ${s.lose}L</td>
+          <td>${s.win}W ${s.lose}L${breakdownHTML}</td>
           <td class="${s.winRate >= 50 ? 'win-rate-high' : 'win-rate-low'}">${s.winRate}%</td>
           <td>${judge}</td>
         </tr>
@@ -1262,9 +1349,7 @@
     const list = document.getElementById('tourneyList');
     list.innerHTML = tourneys.length === 0 ? '<div style="text-align:center; color:#888; padding:10px;">大会ログがありません</div>' : '';
     tourneys.forEach(t => {
-      // 修正: 開催日をブロック要素化し、大会名と重ならないように改行して配置
       const dateHTML = t.date ? `<div style="font-size:0.72rem; color:#888; font-weight:bold; margin-bottom:1px;">[${t.date}]</div>` : '';
-      
       const d1 = t.deck1 || t.deck || '未設定';
       const d2 = t.deck2 ? `<br>・デッキ2: ${t.deck2}` : '';
       const deckHTML = `<div style="font-size:0.75rem; color:#555; margin-top:2px;">使用デッキ:<br>・デッキ1: ${d1}${d2}</div>`;
