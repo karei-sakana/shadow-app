@@ -758,12 +758,18 @@
   const savedFields = ['formatInput', 'seasonInput', 'myClass', 'myType', 'myTag', 'gemClass', 'gmGroup', 'userRank', 'initialRate'];
   const gmInitialRateStorageKey = 'swb_gmNextInitialRate';
 
-  function getStoredInitialRate() {
-    return localStorage.getItem(gmInitialRateStorageKey) || localStorage.getItem('swb_initialRate') || '';
+  function getStoredInitialRate(cls) {
+    if (!cls) cls = (document.getElementById('myClass') && document.getElementById('myClass').value) || '';
+    const perKey = cls ? `${gmInitialRateStorageKey}_${cls}` : gmInitialRateStorageKey;
+    return localStorage.getItem(perKey) || localStorage.getItem(gmInitialRateStorageKey) || localStorage.getItem('swb_initialRate') || '';
   }
 
-  function setStoredInitialRate(value) {
+  function setStoredInitialRate(value, cls) {
     const nextValue = value === null || value === '' ? '' : String(value);
+    if (!cls) cls = (document.getElementById('myClass') && document.getElementById('myClass').value) || '';
+    const perKey = cls ? `${gmInitialRateStorageKey}_${cls}` : gmInitialRateStorageKey;
+    localStorage.setItem(perKey, nextValue);
+    // keep legacy keys in sync for compatibility
     localStorage.setItem(gmInitialRateStorageKey, nextValue);
     localStorage.setItem('swb_initialRate', nextValue);
     return nextValue;
@@ -779,7 +785,8 @@
     });
 
     const initialRateEl = document.getElementById('initialRate');
-    const storedInitialRate = getStoredInitialRate();
+    const curClass = (document.getElementById('myClass') && document.getElementById('myClass').value) || '';
+    const storedInitialRate = getStoredInitialRate(curClass);
     if (initialRateEl && storedInitialRate !== '') {
       initialRateEl.value = storedInitialRate;
     }
@@ -876,6 +883,10 @@
 
   document.getElementById('myClass').addEventListener('change', () => {
     updateMyDeckDatalist();
+    // update GM初期レート欄 to the stored value for this class (if any)
+    const cls = document.getElementById('myClass').value;
+    const stored = getStoredInitialRate(cls);
+    if (stored !== '') document.getElementById('initialRate').value = stored;
   });
 
   document.getElementById('oppClass').addEventListener('change', () => {
