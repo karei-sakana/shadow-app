@@ -1263,10 +1263,7 @@
       }
     });
 
-    const hasAnyGM = ALL_CLASSES.some(c => hasGM[c]);
-    const totalRate = ALL_CLASSES.reduce((sum, c) => sum + (hasGM[c] ? rates[c] : 0), 0);
-    const totalDelta = ALL_CLASSES.reduce((sum, c) => sum + (hasGM[c] ? deltas[c] : 0), 0);
-    summary.innerHTML = hasAnyGM ? `最終合計レート: <strong>${totalRate}pt</strong>${totalDelta !== 0 ? ` (${totalDelta > 0 ? '+' : ''}${totalDelta}pt)` : ''}` : 'GMレートの記録がまだありません';
+    summary.innerHTML = ALL_CLASSES.some(c => hasGM[c]) ? '各クラスのGMレートを表示しています。' : 'GMレートの記録がまだありません';
 
     ALL_CLASSES.forEach(c => {
       const deltaText = hasGM[c] ? `${deltas[c] > 0 ? '+' : ''}${deltas[c]}pt` : '';
