@@ -340,7 +340,6 @@
 
     <div class="trump-card">
       <h2><span style="color: var(--gold-accent);">♣</span> 各クラス GMレート（現在値）</h2>
-      <div class="rate-summary" id="rateSummary"></div>
       <div class="rate-board" id="rateBoard"></div>
     </div>
 
@@ -502,7 +501,12 @@
       <h2>📢 アップデート情報・更新履歴</h2>
       <ul class="update-log-list">
         <li class="update-log-item">
-          <span class="update-date">2026.07（最新）</span>
+          <span class="update-date">2026.07.24</span>
+          <strong>不具合修正(最新)</strong>
+          <p style="font-size: 0.75rem; color: #555; margin-top: 2px;">GM時のレートが正しく更新されない不具合を修正しました。</p>
+        </li>
+        <li class="update-log-item">
+          <span class="update-date">2026.07.23</span>
           <strong>GM時のレート保持 & 絞り込み機能にクラスとデッキの追加</strong>
           <p style="font-size: 0.75rem; color: #555; margin-top: 2px;">GM時のレートを最初に記載したレートと増減後のレートから計算し入力なしで反映されるよう改善しました。絞り込み機能にクラスとデッキを追加しました。</p>
         </li>
@@ -533,7 +537,7 @@
       </div>
       <div class="footer-section">
         <h3>ℹ️ アプリ仕様</h3>
-        <p>バージョン: Ver 1.6.4</p>
+        <p>バージョン: Ver 1.6.5</p>
         <p>対応機能: ランク戦績記録 / GMレート集計 / 大会戦績管理 / デッキライブラリ </p>
       </div>
     </div>
@@ -880,12 +884,12 @@
 
   document.getElementById('myClass').addEventListener('change', () => {
     updateMyDeckDatalist();
-    // update GM初期レート欄 to the stored value for this class (if any)
     const cls = document.getElementById('myClass').value;
     const stored = getStoredInitialRate(cls);
-    // always set (empty string clears previous class value)
     const initialEl = document.getElementById('initialRate');
-    if (initialEl) initialEl.value = stored;
+    if (initialEl) {
+      initialEl.value = stored !== '' ? stored : '';
+    }
   });
 
   document.getElementById('oppClass').addEventListener('change', () => {
@@ -971,6 +975,8 @@
     const rateChangeVal = parseNumber(rateChangeInput.value);
 
     try {
+      const finalInitialRate = isGM.checked ? (initialRateVal !== null ? initialRateVal : parseNumber(getStoredInitialRate(document.getElementById('myClass').value)) || 0) : null;
+
       await addDoc(collection(db, "users", currentUser.uid, "matches"), {
         createdAt: new Date(),
         format: document.getElementById('formatInput').value,
@@ -985,10 +991,18 @@
         result: document.querySelector('input[name="result"]:checked').value,
         isGM: isGM.checked,
         rank: isGM.checked ? `GM (${document.getElementById('gmGroup').value})` : document.getElementById('userRank').value,
-        initialRate: isGM.checked ? initialRateVal : null,
+        initialRate: finalInitialRate, // ← ここを確実に渡す
         rateChange: isGM.checked ? (rateChangeVal !== null ? rateChangeVal : 0) : null,
         date: new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
       });
+
+      // 次回用の初期レートを自動更新（初期レート + レート増減）
+      if (isGM.checked) {
+        const cls = document.getElementById('myClass').value;
+        const nextInitialRate = finalInitialRate + (rateChangeVal !== null ? rateChangeVal : 0);
+        setStoredInitialRate(nextInitialRate, cls);
+        initialRateInput.value = nextInitialRate;
+      }
 
       // GMの場合、次回起動時の初期レートを「現在の値 + 増減」で計算して保存
       if (isGM.checked) {
@@ -1240,35 +1254,42 @@
 
   function renderGMRates(data) {
     const board = document.getElementById('rateBoard');
-    const summary = document.getElementById('rateSummary');
     board.innerHTML = '';
     const rates = {}; const hasGM = {}; const deltas = {};
     ALL_CLASSES.forEach(c => { rates[c] = 0; hasGM[c] = false; deltas[c] = 0; });
 
-    const latestByClass = {};
-    [...data].reverse().forEach(m => {
-      if (m.isGM && m.myClass && rates[m.myClass] !== undefined && !latestByClass[m.myClass]) {
-        latestByClass[m.myClass] = m;
+    // 各クラスごとに、GMの試合データを抽出してレート増減をすべて合算する
+    ALL_CLASSES.forEach(cls => {
+      const classMatches = data.filter(m => m.isGM && m.myClass === cls);
+      if (classMatches.length > 0) {
+        hasGM[cls] = true;
+        
+        // 最新の試合（配列の先頭、または一番新しいもの）を取得
+        const latestMatch = classMatches[0];
+        
+        // このクラスの最新のベースとなる初期レートを優先的に取得
+        // 1. ローカルストレージに保存されている最新の初期レート
+        // 2. なければ最新試合に記録されている initialRate
+        const storedBase = parseNumber(getStoredInitialRate(cls));
+        const baseRate = storedBase !== null ? storedBase : (latestMatch.initialRate !== null ? latestMatch.initialRate : 0);
+        
+        // 該当クラスのすべての試合のレート増減（rateChange）の合計を計算
+        const totalDelta = classMatches.reduce((sum, m) => sum + (parseNumber(m.rateChange) || 0), 0);
+        
+        rates[cls] = baseRate + totalDelta;
+        deltas[cls] = latestMatch.rateChange !== null ? latestMatch.rateChange : 0;
       }
     });
-
-    ALL_CLASSES.forEach(c => {
-      const latest = latestByClass[c];
-      if (latest) {
-        hasGM[c] = true;
-        const baseRate = latest.initialRate !== null ? latest.initialRate : 0;
-        const rateChange = latest.rateChange !== null ? latest.rateChange : 0;
-        rates[c] = baseRate + rateChange;
-        deltas[c] = rateChange;
-      }
-    });
-
-    summary.innerHTML = ALL_CLASSES.some(c => hasGM[c]) ? '各クラスのGMレートを表示しています。' : 'GMレートの記録がまだありません';
 
     ALL_CLASSES.forEach(c => {
       const deltaText = hasGM[c] ? `${deltas[c] > 0 ? '+' : ''}${deltas[c]}pt` : '';
       const deltaClass = hasGM[c] ? (deltas[c] > 0 ? 'delta-up' : deltas[c] < 0 ? 'delta-down' : 'delta-zero') : 'delta-zero';
-      board.innerHTML += `<div class="rate-card"><div class="class-name">${c}</div><div class="rate-val">${hasGM[c] ? rates[c] + 'pt' : '-'}</div>${hasGM[c] ? `<div class="rate-delta ${deltaClass}">${deltaText}</div>` : ''}</div>`;
+      board.innerHTML += `
+        <div class="rate-card">
+          <div class="class-name">${c}</div>
+          <div class="rate-val">${hasGM[c] ? rates[c] + 'pt' : '-'}</div>
+          ${hasGM[c] ? `<div class="rate-delta ${deltaClass}">${deltaText}</div>` : ''}
+        </div>`;
     });
   }
 
