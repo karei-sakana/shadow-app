@@ -117,6 +117,13 @@
     .rate-card { background: rgba(212, 175, 55, 0.08); border: 1px solid var(--gold-accent); border-radius: 8px; padding: 6px; text-align: center; }
     .rate-card .class-name { font-size: 0.72rem; font-weight: 600; }
     .rate-card .rate-val { font-family: var(--font-family-en); font-size: 0.95rem; font-weight: 700; color: var(--heart-red); }
+    .rate-card .rate-delta { font-size: 0.72rem; font-weight: 700; margin-top: 2px; }
+    .rate-card .delta-up { color: #2e7d32; }
+    .rate-card .delta-down { color: #c62828; }
+    .rate-card .delta-zero { color: #666; }
+    .rate-summary, .stats-summary { margin: 8px 0 10px; padding: 8px 10px; border: 1px solid rgba(212, 175, 55, 0.35); background: rgba(212, 175, 55, 0.08); border-radius: 8px; font-size: 0.82rem; color: #444; }
+    .rate-summary strong, .stats-summary strong { color: var(--spade-black); }
+    .stats-summary .stat-pill { display: inline-block; padding: 2px 6px; margin: 2px 2px 0 0; border-radius: 999px; background: rgba(255,255,255,0.7); border: 1px solid rgba(212, 175, 55, 0.3); }
 
     .table-wrapper { overflow-x: auto; margin-top: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.8rem; white-space: nowrap; }
@@ -333,6 +340,7 @@
 
     <div class="trump-card">
       <h2><span style="color: var(--gold-accent);">♣</span> 各クラス GMレート（現在値）</h2>
+      <div class="rate-summary" id="rateSummary"></div>
       <div class="rate-board" id="rateBoard"></div>
     </div>
 
@@ -355,7 +363,16 @@
             <option value="true">サブタグ</option>
           </select>
         </div>
+        <div>自分のクラス: 
+          <select id="filterMyClass" style="padding: 2px 4px; font-size: 13px; width: auto; display: inline-block;">
+            <option value="ALL">すべて</option>
+            <option value="エルフ">エルフ</option><option value="ロイヤル">ロイヤル</option><option value="ウィッチ">ウィッチ</option>
+            <option value="ドラゴン">ドラゴン</option><option value="ナイトメア">ナイトメア</option><option value="ビショップ">ビショップ</option><option value="ネメシス">ネメシス</option>
+          </select>
+        </div>
+        <div>自分のデッキ: <input type="text" id="filterMyType" placeholder="すべて" list="filterMyTypeList" style="padding: 2px 4px; font-size: 13px; width: 110px; display: inline-block;"></div>
       </div>
+      <div id="statsSummary" class="stats-summary"></div>
       <div class="table-wrapper">
         <table>
           <thead>
@@ -485,7 +502,12 @@
       <h2>📢 アップデート情報・更新履歴</h2>
       <ul class="update-log-list">
         <li class="update-log-item">
-          <span class="update-date">2026.07 (最新)</span>
+          <span class="update-date">2026.07（最新）</span>
+          <strong>GM時のレート保持 & 絞り込み機能にクラスとデッキの追加</strong>
+          <p style="font-size: 0.75rem; color: #555; margin-top: 2px;">GM時のレートを最初に記載したレートと増減後のレートから計算し入力なしで反映されるよう改善しました。絞り込み機能にクラスとデッキを追加しました。</p>
+        </li>
+        <li class="update-log-item">
+          <span class="update-date">2026.07</span>
           <strong>大会戦績の表示レイアウト修正 & ラベル変更</strong>
           <p style="font-size: 0.75rem; color: #555; margin-top: 2px;">スマホ表示時に開催日と大会名が重ならないようレイアウトを修正し、入力・表示の「開催日付」を「開催日」に変更しました。また、第1章の相性分析・ログへの先攻・後攻絞り込み機能を追加しました。</p>
         </li>
@@ -687,6 +709,7 @@
 
 <!-- 共有用datalist（3章のデッキから自動生成） -->
 <datalist id="deckLibraryList"></datalist>
+<datalist id="filterMyTypeList"></datalist>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -732,7 +755,20 @@
     return isNaN(num) ? null : num;
   };
 
-  const savedFields = ['formatInput', 'seasonInput', 'myClass', 'myType', 'myTag', 'gemClass', 'gmGroup', 'userRank'];
+  const savedFields = ['formatInput', 'seasonInput', 'myClass', 'myType', 'myTag', 'gemClass', 'gmGroup', 'userRank', 'initialRate'];
+  const gmInitialRateStorageKey = 'swb_gmNextInitialRate';
+
+  function getStoredInitialRate() {
+    return localStorage.getItem(gmInitialRateStorageKey) || localStorage.getItem('swb_initialRate') || '';
+  }
+
+  function setStoredInitialRate(value) {
+    const nextValue = value === null || value === '' ? '' : String(value);
+    localStorage.setItem(gmInitialRateStorageKey, nextValue);
+    localStorage.setItem('swb_initialRate', nextValue);
+    return nextValue;
+  }
+
   function loadSavedInputs() {
     savedFields.forEach(id => {
       const savedVal = localStorage.getItem('swb_' + id);
@@ -741,16 +777,25 @@
         if (el) el.value = savedVal;
       }
     });
+
+    const initialRateEl = document.getElementById('initialRate');
+    const storedInitialRate = getStoredInitialRate();
+    if (initialRateEl && storedInitialRate !== '') {
+      initialRateEl.value = storedInitialRate;
+    }
+
     updateMyDeckDatalist();
     updateOppDeckDatalist();
   }
   savedFields.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      el.addEventListener('change', (e) => {
+      const saveValue = (e) => {
         localStorage.setItem('swb_' + id, e.target.value);
         if (id === 'myClass') updateMyDeckDatalist();
-      });
+      };
+      el.addEventListener('change', saveValue);
+      el.addEventListener('input', saveValue);
     }
   });
 
@@ -868,6 +913,12 @@
     });
 
     document.getElementById('tagHistory').innerHTML = Array.from(tags).map(t => `<option value="${t}">`).join('');
+
+    // populate filter datalist for "自分のデッキ" (filterMyTypeList)
+    const myTypes = new Set();
+    decks.forEach(d => { if (d.title) myTypes.add(d.title); });
+    matches.forEach(m => { if (m.myType) myTypes.add(m.myType); });
+    document.getElementById('filterMyTypeList').innerHTML = Array.from(myTypes).map(t => `<option value="${t}">`).join('');
   }
 
   window.switchPage = (pageId, btn) => {
@@ -904,8 +955,10 @@
       if (el) localStorage.setItem('swb_' + id, el.value);
     });
 
-    const initialRateVal = parseNumber(document.getElementById('initialRate').value);
-    const rateChangeVal = parseNumber(document.getElementById('rateChange').value);
+    const initialRateInput = document.getElementById('initialRate');
+    const rateChangeInput = document.getElementById('rateChange');
+    const initialRateVal = parseNumber(initialRateInput.value);
+    const rateChangeVal = parseNumber(rateChangeInput.value);
 
     try {
       await addDoc(collection(db, "users", currentUser.uid, "matches"), {
@@ -927,7 +980,16 @@
         date: new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
       });
 
+      // GMの場合、次回起動時の初期レートを「現在の値 + 増減」で計算して保存
+      if (isGM.checked) {
+        const baseInitialRate = initialRateVal !== null ? initialRateVal : parseNumber(getStoredInitialRate());
+        const nextInitialRate = (baseInitialRate !== null ? baseInitialRate : 0) + (rateChangeVal !== null ? rateChangeVal : 0);
+        const persistedValue = setStoredInitialRate(nextInitialRate);
+        initialRateInput.value = persistedValue;
+      }
+
       document.getElementById('oppType').value = '';
+      document.getElementById('rateChange').value = '';
       document.getElementById('win').checked = true;
       alert("ランク戦ログを保存しました！");
     } catch (err) { 
@@ -1131,6 +1193,8 @@
   document.getElementById('filterTurn').addEventListener('change', renderAll);
   document.getElementById('filterTag').addEventListener('input', renderAll);
   document.getElementById('groupByTag').addEventListener('change', renderAll);
+  document.getElementById('filterMyClass').addEventListener('change', renderAll);
+  document.getElementById('filterMyType').addEventListener('input', renderAll);
 
   function renderAll() {
     updateSeasonDropdown();
@@ -1138,12 +1202,16 @@
     const format = document.getElementById('filterFormat').value;
     const turn = document.getElementById('filterTurn').value;
     const tagFilter = document.getElementById('filterTag').value.trim();
+    const myClassFilter = document.getElementById('filterMyClass').value;
+    const myTypeFilter = document.getElementById('filterMyType').value.trim();
 
     let filtered = matches;
     if (season !== 'ALL') filtered = filtered.filter(m => m.season === season);
     if (format !== 'ALL') filtered = filtered.filter(m => m.format === format);
     if (turn !== 'ALL') filtered = filtered.filter(m => m.turn === turn);
     if (tagFilter !== '') filtered = filtered.filter(m => m.myTag === tagFilter);
+    if (myClassFilter !== 'ALL') filtered = filtered.filter(m => m.myClass === myClassFilter);
+    if (myTypeFilter !== '') filtered = filtered.filter(m => (m.myType || '').toLowerCase() === myTypeFilter.toLowerCase());
 
     renderGMRates(filtered);
     renderStats(filtered);
@@ -1161,32 +1229,72 @@
 
   function renderGMRates(data) {
     const board = document.getElementById('rateBoard');
+    const summary = document.getElementById('rateSummary');
     board.innerHTML = '';
-    const rates = {}; const hasGM = {};
-    ALL_CLASSES.forEach(c => { rates[c] = 0; hasGM[c] = false; });
+    const rates = {}; const hasGM = {}; const deltas = {};
+    ALL_CLASSES.forEach(c => { rates[c] = 0; hasGM[c] = false; deltas[c] = 0; });
 
+    const latestByClass = {};
     [...data].reverse().forEach(m => {
-      if (m.isGM && rates[m.myClass] !== undefined) {
-        hasGM[m.myClass] = true;
-        if (m.initialRate !== null) rates[m.myClass] = m.initialRate;
-        if (m.rateChange !== null) rates[m.myClass] += m.rateChange;
+      if (m.isGM && m.myClass && rates[m.myClass] !== undefined && !latestByClass[m.myClass]) {
+        latestByClass[m.myClass] = m;
       }
     });
 
     ALL_CLASSES.forEach(c => {
-      board.innerHTML += `<div class="rate-card"><div class="class-name">${c}</div><div class="rate-val">${hasGM[c] ? rates[c] + 'pt' : '-'}</div></div>`;
+      const latest = latestByClass[c];
+      if (latest) {
+        hasGM[c] = true;
+        const baseRate = latest.initialRate !== null ? latest.initialRate : 0;
+        const rateChange = latest.rateChange !== null ? latest.rateChange : 0;
+        rates[c] = baseRate + rateChange;
+        deltas[c] = rateChange;
+      }
+    });
+
+    const hasAnyGM = ALL_CLASSES.some(c => hasGM[c]);
+    const totalRate = ALL_CLASSES.reduce((sum, c) => sum + (hasGM[c] ? rates[c] : 0), 0);
+    const totalDelta = ALL_CLASSES.reduce((sum, c) => sum + (hasGM[c] ? deltas[c] : 0), 0);
+    summary.innerHTML = hasAnyGM ? `最終合計レート: <strong>${totalRate}pt</strong>${totalDelta !== 0 ? ` (${totalDelta > 0 ? '+' : ''}${totalDelta}pt)` : ''}` : 'GMレートの記録がまだありません';
+
+    ALL_CLASSES.forEach(c => {
+      const deltaText = hasGM[c] ? `${deltas[c] > 0 ? '+' : ''}${deltas[c]}pt` : '';
+      const deltaClass = hasGM[c] ? (deltas[c] > 0 ? 'delta-up' : deltas[c] < 0 ? 'delta-down' : 'delta-zero') : 'delta-zero';
+      board.innerHTML += `<div class="rate-card"><div class="class-name">${c}</div><div class="rate-val">${hasGM[c] ? rates[c] + 'pt' : '-'}</div>${hasGM[c] ? `<div class="rate-delta ${deltaClass}">${deltaText}</div>` : ''}</div>`;
     });
   }
 
   function renderStats(data) {
     const tbody = document.getElementById('statsTableBody');
+    const summary = document.getElementById('statsSummary');
     tbody.innerHTML = '';
     const byTag = document.getElementById('groupByTag').value === 'true';
 
     if (data.length === 0) {
+      summary.innerHTML = '<span style="color:#888;">表示対象の戦績がありません</span>';
       tbody.innerHTML = '<tr><td colspan="6" style="color:#888;">データがありません</td></tr>';
       return;
     }
+
+    const totalWins = data.filter(m => m.result === 'WIN').length;
+    const totalLosses = data.filter(m => m.result === 'LOSE').length;
+    const totalGames = totalWins + totalLosses;
+    const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
+
+    const firstWins = data.filter(m => m.turn === '先攻' && m.result === 'WIN').length;
+    const firstLosses = data.filter(m => m.turn === '先攻' && m.result === 'LOSE').length;
+    const firstGames = firstWins + firstLosses;
+    const firstRate = firstGames > 0 ? Math.round((firstWins / firstGames) * 100) : 0;
+
+    const secondWins = data.filter(m => m.turn === '後攻' && m.result === 'WIN').length;
+    const secondLosses = data.filter(m => m.turn === '後攻' && m.result === 'LOSE').length;
+    const secondGames = secondWins + secondLosses;
+    const secondRate = secondGames > 0 ? Math.round((secondWins / secondGames) * 100) : 0;
+
+    summary.innerHTML = `
+      <div><strong>合計</strong> <span class="stat-pill">${totalWins}勝 ${totalLosses}敗</span> <span class="stat-pill">勝率 ${winRate}%</span></div>
+      <div><span class="stat-pill">【先攻時】${firstWins}勝 ${firstLosses}敗 (勝率 ${firstRate}%)</span> <span class="stat-pill">【後攻時】${secondWins}勝 ${secondLosses}敗 (勝率 ${secondRate}%)</span></div>
+    `;
 
     const map = {};
     data.forEach(m => {
