@@ -886,7 +886,9 @@
     // update GM初期レート欄 to the stored value for this class (if any)
     const cls = document.getElementById('myClass').value;
     const stored = getStoredInitialRate(cls);
-    if (stored !== '') document.getElementById('initialRate').value = stored;
+    // always set (empty string clears previous class value)
+    const initialEl = document.getElementById('initialRate');
+    if (initialEl) initialEl.value = stored;
   });
 
   document.getElementById('oppClass').addEventListener('change', () => {
@@ -993,9 +995,10 @@
 
       // GMの場合、次回起動時の初期レートを「現在の値 + 増減」で計算して保存
       if (isGM.checked) {
-        const baseInitialRate = initialRateVal !== null ? initialRateVal : parseNumber(getStoredInitialRate());
+        const cls = document.getElementById('myClass').value;
+        const baseInitialRate = initialRateVal !== null ? initialRateVal : parseNumber(getStoredInitialRate(cls));
         const nextInitialRate = (baseInitialRate !== null ? baseInitialRate : 0) + (rateChangeVal !== null ? rateChangeVal : 0);
-        const persistedValue = setStoredInitialRate(nextInitialRate);
+        const persistedValue = setStoredInitialRate(nextInitialRate, cls);
         initialRateInput.value = persistedValue;
       }
 
