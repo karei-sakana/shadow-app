@@ -755,7 +755,7 @@
     return isNaN(num) ? null : num;
   };
 
-  const savedFields = ['formatInput', 'seasonInput', 'myClass', 'myType', 'myTag', 'gemClass', 'gmGroup', 'userRank', 'initialRate'];
+  const savedFields = ['formatInput', 'seasonInput', 'myClass', 'myType', 'myTag', 'gemClass', 'gmGroup', 'userRank'];
   const gmInitialRateStorageKey = 'swb_gmNextInitialRate';
 
   function getStoredInitialRate(cls) {
@@ -769,9 +769,6 @@
     if (!cls) cls = (document.getElementById('myClass') && document.getElementById('myClass').value) || '';
     const perKey = cls ? `${gmInitialRateStorageKey}_${cls}` : gmInitialRateStorageKey;
     localStorage.setItem(perKey, nextValue);
-    // keep legacy keys in sync for compatibility
-    localStorage.setItem(gmInitialRateStorageKey, nextValue);
-    localStorage.setItem('swb_initialRate', nextValue);
     return nextValue;
   }
 
